@@ -78,13 +78,19 @@ function New-NessusSession
                 'Body' = @{'username' = $Credentials.UserName; 'password' = $Credentials.GetNetworkCredential().password}
                 'ErrorVariable' = 'NessusLoginError'
             }
-
             $TokenResponse = Invoke-RestMethod @RestMethodParams
+
+            $js = (Invoke-WebRequest -uri $URI/nessus6.js).rawContent 
+            $m = ($js -split ";" ) -match "return`"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+            $apiToken = ($m -replace '.*return"', '') -replace '".*', ''        
+
+
             if ($TokenResponse)
             {
                 $SessionProps.add('URI', $URI)
                 $SessionProps.Add('Credentials',$Credentials)
                 $SessionProps.add('Token',$TokenResponse.token)
+                $SessionProps.add('APIToken',$apiToken)
                 $SessionIndex = $Global:NessusConn.Count
                 $SessionProps.Add('SessionId', $SessionIndex)
                 $sessionobj = New-Object -TypeName psobject -Property $SessionProps

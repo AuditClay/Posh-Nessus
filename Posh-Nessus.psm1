@@ -67,7 +67,6 @@ function InvokeNessusRestRequest
 
         [Parameter(Mandatory=$false)]
         [String]$InFile
-
     )
 
     
@@ -75,7 +74,7 @@ function InvokeNessusRestRequest
     $RestMethodParams = @{
         'Method'        = $Method
         'URI'           =  "$($SessionObject.URI)$($Path)"
-        'Headers'       = @{'X-Cookie' = "token=$($SessionObject.Token)"}
+        'Headers'       = @{'X-Cookie' = "token=$($SessionObject.Token)";'X-API-Token' = "$($SessionObject.APIToken)"} 
         'ErrorVariable' = 'NessusUserError'
     }
 
@@ -102,7 +101,7 @@ function InvokeNessusRestRequest
     try
     {
         #$RestMethodParams.Uri
-        $Results = Invoke-RestMethod @RestMethodParams
+        $Results = Invoke-RestMethod @RestMethodParams 
    
     }
     catch [Net.WebException] 

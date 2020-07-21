@@ -754,6 +754,7 @@ function Export-NessusScan
             }
 
             Write-Verbose -Message "Exporting scan with Id of $($ScanId) in $($Format) format."
+
             $FileID = InvokeNessusRestRequest -SessionObject $Connection -Path $path  -Method 'Post' -Parameter $ExportParams
             if ($FileID -is [psobject])
             {
@@ -786,6 +787,150 @@ function Export-NessusScan
     }
     End
     {
+        $ExportParams
+    }
+}
+
+
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Long description
+.EXAMPLE
+   Example of how to use this cmdlet
+.EXAMPLE
+   Another example of how to use this cmdlet
+#>
+function Export-NessusScanDashboardCSV
+{
+    [CmdletBinding()]
+    Param
+    (
+       # Nessus session Id
+        [Parameter(Mandatory=$true,
+                   Position=0,
+                   ValueFromPipelineByPropertyName=$true)]
+        [Alias('Index')]
+        [int32[]]
+        $SessionId = @(),
+
+        [Parameter(Mandatory=$true,
+                   Position=1,
+                   ValueFromPipelineByPropertyName=$true)]
+        [int32]
+        $ScanId,
+
+        [Parameter(Mandatory=$false,
+                   ValueFromPipelineByPropertyName=$true)]
+        [String]
+        $OutFile,
+
+        [Parameter(Mandatory=$false,
+                   Position=4,
+                   ValueFromPipelineByPropertyName=$true)]
+        [Int32]
+        $HistoryID
+    )
+
+    Begin
+    {
+    }
+    Process
+    {
+        $ToProcess = @()
+
+        foreach($i in $SessionId)
+        {
+            $Connections = $Global:NessusConn
+            
+            foreach($Connection in $Connections)
+            {
+                if ($Connection.SessionId -eq $i)
+                {
+                    $ToProcess += $Connection
+                }
+            }
+        }
+
+        $ExportParams = @{}
+        $ExportParams.Add('format', 'csv')
+
+        $CSVColumns = @{}
+        $CSVColumns.Add('id','true')
+        $CSVColumns.Add('cve','true')
+        $CSVColumns.Add('cvss','false')
+        $CSVColumns.Add('risk','true')
+        $CSVColumns.Add('hostname','true')
+        $CSVColumns.Add('protocol','false')
+        $CSVColumns.Add('port','false')
+        $CSVColumns.Add('plugin_name','false')
+        $CSVColumns.Add('synopsis','false')
+        $CSVColumns.Add('description','false')
+        $CSVColumns.Add('solution','false')
+        $CSVColumns.Add('see_also','false')
+        $CSVColumns.Add('plugin_output','false')
+        $CSVColumns.Add('stig_severity','false')
+        $CSVColumns.Add('cvss3_base_score','false')
+        $CSVColumns.Add('cvss_temporal_score','false')
+        $CSVColumns.Add('risk_factor','false')
+        $CSVColumns.Add('cvss3_temporal_score','false')
+        $CSVColumns.Add('references','false')
+        $CSVColumns.Add('plugin_information','false')
+        $CSVColumns.Add('exploitable_with','false')
+
+        $ReportContents = @{}
+        $ReportContents.Add('csvColumns',$CSVColumns)
+        $ExportParams.Add('reportContents',$ReportContents)
+
+        $csvParams = "{`"format`":`"csv`",`"reportContents`":{`"csvColumns`":{`"id`":true,`"cve`":true,`"cvss`":false,`"risk`":true,`"hostname`":true,`"protocol`":false,`"port`":false,`"plugin_name`":false,`"synopsis`":false,`"description`":false,`"solution`":false,`"see_also`":false,`"plugin_output`":false,`"stig_severity`":false,`"cvss3_base_score`":false,`"cvss_temporal_score`":false,`"cvss3_temporal_score`":false,`"risk_factor`":false,`"references`":false,`"plugin_information`":false,`"exploitable_with`":false}},`"extraFilters`":{`"host_ids`":[],`"plugin_ids`":[]}}"
+
+        foreach($Connection in $ToProcess)
+        {
+            if ($HistoryId)
+            {
+                $path =  "/scans/$($ScanId)/export?history_id=$($HistoryId)"
+            }
+            else
+            {
+                $path =  "/scans/$($ScanId)/export"
+            }
+
+            Write-Verbose -Message "Exporting scan with Id of $($ScanId) in $($Format) format."
+
+            $FileID = InvokeNessusRestRequest -SessionObject $Connection -Path $path  -Method 'Post' -Parameter $csvParams -ContentType 'application/json'
+            if ($FileID -is [psobject])
+            {
+                $FileStatus = ''
+                while ($FileStatus.status -ne 'ready')
+                {
+                    try
+                    {
+                        $FileStatus = InvokeNessusRestRequest -SessionObject $Connection -Path "/scans/$($ScanId)/export/$($FileID.file)/status"  -Method 'Get'
+                        Write-Verbose -Message "Status of export is $($FileStatus.status)"
+                    }
+                    catch
+                    {
+                        break
+                    }
+                    Start-Sleep -Seconds 1
+                }
+                if ($FileStatus.status -eq 'ready' -and $Format -eq 'CSV' -and $PSObject.IsPresent)
+                {
+                    Write-Verbose -Message "Converting report to PSObject"
+                    InvokeNessusRestRequest -SessionObject $Connection -Path "/scans/$($ScanId)/export/$($FileID.file)/download" -Method 'Get' | ConvertFrom-CSV
+                }
+                elseif ($FileStatus.status -eq 'ready')
+                {
+                    Write-Verbose -Message "Downloading report to $($OutFile)"
+                    InvokeNessusRestRequest -SessionObject $Connection -Path "/scans/$($ScanId)/export/$($FileID.file)/download" -Method 'Get' -OutFile $OutFile
+                }
+            }
+        }
+    }
+    End
+    {
+        $ExportParams
     }
 }
 
