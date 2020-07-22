@@ -70,7 +70,7 @@ function InvokeNessusRestRequest
     )
 
     
-
+  #Added API Token to re-enable old functions - CAR 2020-07-19
     $RestMethodParams = @{
         'Method'        = $Method
         'URI'           =  "$($SessionObject.URI)$($Path)"
